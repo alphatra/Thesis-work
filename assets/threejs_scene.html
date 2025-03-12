@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Animacja sfery z kuleczkami</title>
+    <style>
+        body {
+          margin: 0;
+          overflow: hidden;
+          background-color: black;
+        }
+        #renderCanvas {
+          width: 100%;
+          height: 100%;
+          touch-action: none;
+        }
+        #info {
+          position: absolute;
+          top: 10px;
+          left: 10px;
+          color: white;
+          font-family: sans-serif;
+          font-size: 16px;
+          pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+<canvas id="renderCanvas"></canvas>
+<div id="info"></div>
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script>
+    // Ustawienia symulacji
+    const containerRadius = 3;      // Promień sfery-kontenera
+    const sphereRadius = 0.2;       // Promień małych kulek
+    const numSpheres = 5;           // Liczba kulek
+    const maxTrailLength = 20;      // Maksymalna liczba punktów trailu
+
+    // Inicjalizacja sceny
+    var canvas = document.getElementById("renderCanvas");
+    var engine = new BABYLON.Engine(canvas, true);
+    var scene = new BABYLON.Scene(engine);
+
+    // Kamera
+    var camera = new BABYLON.ArcRotateCamera("Camera", Math.PI/2, Math.PI/2, 10, new BABYLON.Vector3(0,0,0), scene);
+    camera.attachControl(canvas, true);
+
+    // Światło
+    var light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0,1,0), scene);
+    light.intensity = 0.7;
+
+    // Kontener – sfera w trybie wireframe, półprzezroczysta
+    var containerSphere = BABYLON.MeshBuilder.CreateSphere("container", {diameter: containerRadius*2, segments: 32}, scene);
+    containerSphere.isPickable = false;
+    var containerMat = new BABYLON.StandardMaterial("containerMat", scene);
+    containerMat.diffuseColor = new BABYLON.Color3(1,1,1);
+    containerMat.wireframe = true;
+    containerMat.alpha = 0.3;
+    containerSphere.material = containerMat;
+
+    // Struktura danych dla kulek
+    // Każdy element: { mesh, velocity, trailPositions, trailMesh }
+    var spheres = [];
+
+    for (let i = 0; i < numSpheres; i++) {
+      // Wylosuj pozycję wewnątrz sfery-kontenera (upewniając się, że kulka nie wychodzi poza ścianę)
+      let pos;
+      do {
+         pos = new BABYLON.Vector3(
+           (Math.random()*2 - 1) * (containerRadius - sphereRadius),
+           (Math.random()*2 - 1) * (containerRadius - sphereRadius),
+           (Math.random()*2 - 1) * (containerRadius - sphereRadius)
+         );
+      } while (pos.length() > (containerRadius - sphereRadius));
+
+      var sphereMesh = BABYLON.MeshBuilder.CreateSphere("sphere" + i, {diameter: sphereRadius*2, segments: 16}, scene);
+      sphereMesh.position = pos;
+      var sphereMat = new BABYLON.StandardMaterial("sphereMat" + i, scene);
+      // Losowy kolor kulki
+      sphereMat.diffuseColor = new BABYLON.Color3(Math.random(), Math.random(), Math.random());
+      sphereMesh.material = sphereMat;
+
+      // Losowa początkowa prędkość (kierunek losowy, wartość w zakresie np. 0.02-0.05)
+      var speed = 0.02 + Math.random() * 0.03;
+      var velocity = new BABYLON.Vector3(
+        (Math.random()*2 - 1),
+        (Math.random()*2 - 1),
+        (Math.random()*2 - 1)
+      ).normalize().scale(speed);
+
+      // Tablica punktów dla trailu (na początku pusta)
+      var trailPositions = [];
+
+      // Tworzymy początkowy mesh linii dla trailu
+      var trailMesh = BABYLON.MeshBuilder.CreateLines("trail" + i, {points: trailPositions}, scene);
+      trailMesh.color = sphereMat.diffuseColor;
+
+      spheres.push({
+         mesh: sphereMesh,
+         velocity: velocity,
+         trailPositions: trailPositions,
+         trailMesh: trailMesh
+      });
+    }
+
+    // Funkcja aktualizująca trail dla danej kulki
+    function updateTrail(sphereData) {
+      // Dodaj bieżącą pozycję do tablicy (klon, by nie trzymać referencji)
+      sphereData.trailPositions.push(sphereData.mesh.position.clone());
+      if (sphereData.trailPositions.length > maxTrailLength) {
+         sphereData.trailPositions.shift();
+      }
+      // Aktualizuj mesh trailu – korzystamy z opcji 'instance'
+      sphereData.trailMesh = BABYLON.MeshBuilder.CreateLines(null, {points: sphereData.trailPositions, instance: sphereData.trailMesh});
+    }
+
+    // Prosta obsługa kolizji między dwiema kulkami (elastyczny zderzenie, masa = 1)
+    function handleSphereCollision(s1, s2) {
+      var pos1 = s1.mesh.position;
+      var pos2 = s2.mesh.position;
+      var diff = pos1.subtract(pos2);
+      var dist = diff.length();
+      if (dist < sphereRadius * 2) { // kolizja
+         var normal = diff.normalize();
+         var relativeVelocity = s1.velocity.subtract(s2.velocity);
+         var speed = BABYLON.Vector3.Dot(relativeVelocity, normal);
+         // Jeśli kulki oddalają się, nie robimy nic
+         if (speed >= 0) return;
+         // Aktualizujemy prędkości zgodnie z zasadą zachowania pędu
+         s1.velocity = s1.velocity.subtract(normal.scale(speed));
+         s2.velocity = s2.velocity.add(normal.scale(speed));
+         // Rozdziel kuleczki, aby uniknąć zaciśnięcia
+         var overlap = sphereRadius*2 - dist;
+         s1.mesh.position.addInPlace(normal.scale(overlap/2));
+         s2.mesh.position.subtractInPlace(normal.scale(overlap/2));
+      }
+    }
+
+    // Pętla renderowania
+    engine.runRenderLoop(function(){
+      // Aktualizacja pozycji i trailu dla każdej kulki
+      spheres.forEach(function(sphereData) {
+         // Aktualizacja pozycji: nowa pozycja = stara pozycja + prędkość
+         sphereData.mesh.position.addInPlace(sphereData.velocity);
+
+         // Sprawdzenie kolizji z kontenerem – jeśli kulka wychodzi poza sferę, odbij ją
+         var pos = sphereData.mesh.position;
+         var dist = pos.length();
+         if (dist + sphereRadius > containerRadius) {
+           var normal = pos.normalize();
+           // Odbicie: v = v - 2*(v·n)*n, jeśli kulka porusza się na zewnątrz
+           var dot = BABYLON.Vector3.Dot(sphereData.velocity, normal);
+           if (dot > 0) {
+             sphereData.velocity = sphereData.velocity.subtract(normal.scale(2 * dot));
+           }
+           // Ustaw pozycję na krawędzi kontenera
+           sphereData.mesh.position = normal.scale(containerRadius - sphereRadius);
+         }
+
+         // Aktualizacja trailu
+         updateTrail(sphereData);
+      });
+
+      // Sprawdzenie kolizji między parami kulek
+      for (let i = 0; i < spheres.length; i++) {
+         for (let j = i+1; j < spheres.length; j++) {
+            handleSphereCollision(spheres[i], spheres[j]);
+         }
+      }
+
+      scene.render();
+    });
+
+    // Obsługa zdarzenia ruchu myszy – wykrywanie, czy kursor znajduje się nad kulką
+    scene.onPointerObservable.add((pointerInfo) => {
+      if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE) {
+         var pickResult = scene.pick(scene.pointerX, scene.pointerY);
+         var infoDiv = document.getElementById("info");
+         if (pickResult.hit && pickResult.pickedMesh) {
+            // Sprawdź, czy trafiliśmy w jedną z kulek
+            var found = spheres.find(s => s.mesh === pickResult.pickedMesh);
+            if (found) {
+               var speed = found.velocity.length();
+               infoDiv.innerText = "Prędkość: " + speed.toFixed(3);
+               return;
+            }
+         }
+         infoDiv.innerText = "";
+      }
+    });
+
+    // Obsługa zmiany rozmiaru okna
+    window.addEventListener("resize", function(){
+      engine.resize();
+    });
+</script>
+</body>
+</html>

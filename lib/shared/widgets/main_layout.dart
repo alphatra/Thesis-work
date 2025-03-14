@@ -83,7 +83,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                 Expanded(
                   child: Container(
                     color: theme.contentBackgroundColor,
-                    child: child,
+                    child: widget.child,
                   ),
                 ),
               ],

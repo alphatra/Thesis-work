@@ -1,12 +1,9 @@
-@riverpod
-class CacheService extends _$CacheService {
-  final _cache = <String, dynamic>{};
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-  T? get<T>(String key) => _cache[key] as T?;
+class CacheService {
+  // Implementation details
+}
 
-  void set<T>(String key, T value) => _cache[key] = value;
-
-  void remove(String key) => _cache.remove(key);
-
-  void clear() => _cache.clear();
-} 
+final cacheServiceProvider = Provider<CacheService>((ref) {
+  return CacheService();
+});

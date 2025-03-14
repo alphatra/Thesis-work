@@ -1,72 +1,99 @@
-class MainLayout extends ConsumerStatefulWidget {
-  final Widget child;
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/navigation_provider.dart';
+import 'optimized_navigation_items.dart';
 
-  const MainLayout({super.key, required this.child});
+class OptimizedSidebar extends ConsumerWidget {
+  final bool isExpanded;
 
-  @override
-  ConsumerState<MainLayout> createState() => _MainLayoutState();
-}
-
-class _MainLayoutState extends ConsumerState<MainLayout> {
-  // Używamy late final dla jednokrotnej inicjalizacji
-  late final _searchController = TextEditingController();
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
+  const OptimizedSidebar({
+    Key? key,
+    this.isExpanded = true,
+  }) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return _MainLayoutContent(
-          child: widget.child,
-          searchController: _searchController,
-          constraints: constraints,
-        );
-      },
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GestureDetector(
+      onTap: () => ref.read(navigationProvider.notifier).toggleSidebar(),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: isExpanded ? 240 : 52,
+        child: _SidebarContent(isExpanded: isExpanded),
+      ),
     );
   }
 }
 
-// Wydzielony komponent dla lepszej wydajności
-class _MainLayoutContent extends ConsumerWidget {
-  final Widget child;
-  final TextEditingController searchController;
-  final BoxConstraints constraints;
+class _SidebarContent extends StatelessWidget {
+  final bool isExpanded;
 
-  const _MainLayoutContent({
-    required this.child,
-    required this.searchController,
-    required this.constraints,
-  });
+  const _SidebarContent({
+    Key? key,
+    required this.isExpanded,
+  }) : super(key: key);
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = ref.watch(themeProvider);
-    final navigation = ref.watch(navigationProvider);
-
-    return Material(
-      color: theme.contentBackgroundColor,
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFF252526),
       child: Column(
         children: [
-          const OptimizedTitleBar(),
+          const SizedBox(height: 8),
           Expanded(
-            child: Row(
-              children: [
-                OptimizedSidebar(
-                  width: navigation.isSidebarExpanded ? 250 : 52,
-                ),
-                Expanded(
-                  child: OptimizedContent(child: child),
-                ),
-              ],
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSectionTitle(isExpanded, 'NAVIGATION'),
+                  const OptimizedNavigationItems(),
+                ],
+              ),
             ),
           ),
+          _buildSidebarFooter(context),
         ],
       ),
     );
   }
-} 
+
+  Widget _buildSectionTitle(bool isExpanded, String title) {
+    if (!isExpanded) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSidebarFooter(BuildContext context) {
+    return Consumer(builder: (context, ref, _) {
+      return Container(
+        padding: const EdgeInsets.all(8),
+        decoration: const BoxDecoration(
+          border: Border(
+            top: BorderSide(color: Color(0xFF333333)),
+          ),
+        ),
+        child: IconButton(
+          icon: Icon(
+            isExpanded ? Icons.chevron_left : Icons.chevron_right,
+            color: Colors.white70,
+            size: 20,
+          ),
+          onPressed: () {
+            ref.read(navigationProvider.notifier).toggleSidebar();
+          },
+          tooltip: isExpanded ? 'Collapse sidebar' : 'Expand sidebar',
+        ),
+      );
+    });
+  }
+}

@@ -1,50 +1,27 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/app_theme.dart';
-import '../models/navigation_state.dart';
+import '../core/theme/app_theme.dart';
+import '../core/navigation/app_router.dart';
+import '../shared/models/app_mode.dart';
 
-// Scentralizowany plik z providerami dla lepszej organizacji i wydajności
+// Theme provider
+final themeProvider = StateNotifierProvider<AppThemeNotifier, AppThemeData>(
+      (ref) => AppThemeNotifier(),
+);
 
-final themeProvider = StateProvider<AppTheme>((ref) {
-  return const AppTheme(
-    contentBackgroundColor: Color(0xFF1E1E1E),
-    sidebarColor: Color(0xFF252526),
-    titleBarColor: Color(0xFF1A1A1A),
-    textPrimaryColor: Colors.white,
-    textSecondaryColor: Colors.white70,
-    accentColor: Color(0xFF007ACC),
-    buttonBackgroundColor: Color(0xFF2D2D2D),
-    dividerColor: Color(0xFF333333),
-  );
-});
+// Navigation provider
+final navigationProvider = StateNotifierProvider<NavigationNotifier, NavigationState>(
+      (ref) => NavigationNotifier(),
+);
 
-final navigationProvider = StateNotifierProvider<NavigationNotifier, NavigationState>((ref) {
-  return NavigationNotifier();
-});
+// App mode provider
+class AppModeNotifier extends StateNotifier<AppMode> {
+  AppModeNotifier() : super(AppMode.basic);
 
-class NavigationNotifier extends StateNotifier<NavigationState> {
-  NavigationNotifier() : super(const NavigationState(currentRoute: NavigationRoute.home));
-
-  void navigateTo(NavigationRoute route, {String? subRoute}) {
-    state = state.copyWith(
-      currentRoute: route,
-      selectedSubRoute: subRoute,
-    );
-  }
-
-  void toggleSidebar() {
-    state = state.copyWith(isSidebarExpanded: !state.isSidebarExpanded);
+  void toggleMode() {
+    state = state == AppMode.basic ? AppMode.experimental : AppMode.basic;
   }
 }
 
-@riverpod
-class AppMode extends _$AppMode {
-  @override
-  AppModeState build() {
-    return const AppModeState(mode: AppMode.basic);
-  }
-
-  void setMode(AppMode mode) {
-    state = state.copyWith(mode: mode);
-  }
-} 
+final appModeProvider = StateNotifierProvider<AppModeNotifier, AppMode>(
+      (ref) => AppModeNotifier(),
+);

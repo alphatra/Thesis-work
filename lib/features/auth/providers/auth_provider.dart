@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/auth_state.dart';
+import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../../../shared/services/secure_storage_service.dart';
 
@@ -20,9 +21,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
       
       state = state.copyWith(status: AuthStatus.authenticating);
-      final user = await _authService.getUserFromToken(token);
+      final response = await _authService.getUserFromToken(token);
       
-      if (user != null) {
+      if (response != null && response['valid']) {
+        final userData = response['user'];
+        final user = User(
+          id: userData['id'],
+          name: userData['name'],
+          email: userData['email'],
+          role: userData['role'],
+          token: token,
+        );
+        
         state = state.copyWith(
           status: AuthStatus.authenticated,
           user: user,
@@ -43,14 +53,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       state = state.copyWith(status: AuthStatus.authenticating);
       
-      final result = await _authService.login(email, password);
+      final response = await _authService.login(email, password);
       
-      if (result.token.isNotEmpty) {
-        await _secureStorage.saveToken(result.token);
+      if (response['token'] != null) {
+        await _secureStorage.saveToken(response['token']);
+        
+        final user = User(
+          id: response['user']['id'],
+          name: response['user']['name'],
+          email: response['user']['email'],
+          role: response['user']['role'],
+          token: response['token'],
+        );
         
         state = state.copyWith(
           status: AuthStatus.authenticated,
-          user: result.user,
+          user: user,
         );
       } else {
         throw Exception('Invalid token received');

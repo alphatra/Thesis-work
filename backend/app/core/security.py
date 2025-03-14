@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Optional
 import bcrypt
-import jwt
+from jose import jwt
 from .config import settings
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -32,5 +32,5 @@ def decode_token(token: str):
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         return payload
-    except jwt.PyJWTError:
+    except jwt.JWTError:
         return None

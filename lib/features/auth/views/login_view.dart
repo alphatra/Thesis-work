@@ -23,8 +23,8 @@ class _LoginViewState extends ConsumerState<LoginView> {
   void initState() {
     super.initState();
     // For testing purposes
-    _emailController.text = 'test@test.com';
-    _passwordController.text = 'password';
+    _emailController.text = 'test@example.com';
+    _passwordController.text = 'test123';
   }
 
   @override

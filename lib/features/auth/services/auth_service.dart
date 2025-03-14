@@ -1,60 +1,64 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/user.dart';
-import '../models/auth_result.dart';
-import '../../../shared/services/grpc_service.dart';
+import 'package:http/http.dart' as http;
 
 class AuthService {
-  final GrpcService _grpcService;
+  final String baseUrl = 'http://localhost:8000';
 
-  AuthService(this._grpcService);
+  Future<Map<String, dynamic>> login(String email, String password) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/login'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email,
+        'password': password,
+      }),
+    );
 
-  Future<AuthResult> login(String email, String password) async {
-    try {
-      // TODO: Implement actual gRPC call when proto files are generated
-      // Temporary mock implementation
-      await Future.delayed(const Duration(seconds: 1));
-      
-      if (email.trim().toLowerCase() == "test@test.com" && password == "password") {
-        return AuthResult(
-          token: "mock_token",
-          user: User(
-            id: "1",
-            name: "Test User",
-            email: email,
-            role: "user",
-          ),
-        );
-      }
-      
-      throw Exception('Nieprawidłowy email lub hasło');
-    } catch (e) {
-      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Błąd logowania: ${response.body}');
     }
   }
 
-  Future<User?> getUserFromToken(String token) async {
-    try {
-      // TODO: Implement actual gRPC call when proto files are generated
-      // Temporary mock implementation
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      if (token == "mock_token") {
-        return User(
-          id: "1",
-          name: "Test User",
-          email: "test@test.com",
-          role: "user",
-        );
-      }
-      
-      return null;
-    } catch (e) {
-      return null;
+  Future<Map<String, dynamic>> register(String name, String email, String password) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/register'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'name': name,
+        'email': email,
+        'password': password,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } else {
+      throw Exception('Błąd rejestracji: ${response.body}');
     }
+  }
+
+  Future<Map<String, dynamic>?> getUserFromToken(String token) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/validate'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'token': token,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (data['valid']) {
+        return data;
+      }
+    }
+    return null;
   }
 }
 
 final authServiceProvider = Provider<AuthService>((ref) {
-  final grpcService = ref.watch(grpcServiceProvider);
-  return AuthService(grpcService);
+  return AuthService();
 });
